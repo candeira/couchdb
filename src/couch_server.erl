@@ -171,16 +171,6 @@ has_admins() ->
 get_full_filename(Server, DbName) ->
     filename:join([Server#server.root_dir, "./" ++ DbName ++ ".couch"]).
 
-hash_admin_passwords() ->
-    hash_admin_passwords(true).
-
-hash_admin_passwords(Persist) ->
-    lists:foreach(
-        fun({User, ClearPassword}) ->
-            HashedPassword = couch_passwords:hash_admin_password(ClearPassword),
-            config:set("admins", User, ?b2l(HashedPassword), Persist)
-        end, couch_passwords:get_unhashed_admins()).
-
 init([]) ->
     % read config and register for configuration changes
 
@@ -194,7 +184,6 @@ init([]) ->
         config:get("couchdb", "update_lru_on_read", "true") =:= "true",
     ok = config:listen_for_changes(?MODULE, nil),
     ok = couch_file:init_delete_dir(RootDir),
-    hash_admin_passwords(),
     {ok, RegExp} = re:compile(
         "^[a-z][a-z0-9\\_\\$()\\+\\-\\/]*" % use the stock CouchDB regex
         "(\\.[0-9]{10,})?$" % but allow an optional shard timestamp at the end
@@ -227,9 +216,6 @@ handle_config_change("couchdb", "max_dbs_open", Max, _, _) when is_list(Max) ->
     {ok, gen_server:call(couch_server,{set_max_dbs_open,list_to_integer(Max)})};
 handle_config_change("couchdb", "max_dbs_open", _, _, _) ->
     {ok, gen_server:call(couch_server,{set_max_dbs_open,?MAX_DBS_OPEN})};
-handle_config_change("admins", _, _, Persist, _) ->
-    % spawn here so couch event manager doesn't deadlock
-    {ok, spawn(fun() -> hash_admin_passwords(Persist) end)};
 handle_config_change("httpd", "authentication_handlers", _, _, _) ->
     {ok, couch_httpd:stop()};
 handle_config_change("httpd", "bind_address", _, _, _) ->

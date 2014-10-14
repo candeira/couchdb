@@ -13,7 +13,7 @@
 -module(couch_passwords).
 
 -export([simple/2, pbkdf2/3, pbkdf2/4, verify/2]).
--export([hash_admin_password/1, get_unhashed_admins/0]).
+-export([hash_admin_password/1]).
 
 -include_lib("couch/include/couch_db.hrl").
 
@@ -37,18 +37,6 @@ hash_admin_password(ClearPassword) when is_binary(ClearPassword) ->
     ?l2b("-pbkdf2-" ++ ?b2l(DerivedKey) ++ ","
         ++ ?b2l(Salt) ++ ","
         ++ Iterations).
-
--spec get_unhashed_admins() -> list().
-get_unhashed_admins() ->
-    lists:filter(
-        fun({_User, "-hashed-" ++ _}) ->
-            false; % already hashed
-        ({_User, "-pbkdf2-" ++ _}) ->
-            false; % already hashed
-        ({_User, _ClearPassword}) ->
-            true
-        end,
-    config:get("admins")).
 
 %% Current scheme, much stronger.
 -spec pbkdf2(binary(), binary(), integer()) -> binary().
